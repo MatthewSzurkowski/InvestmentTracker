@@ -58,6 +58,11 @@ class Asset(models.Model):
     purchase_price = models.DecimalField(max_digits=12, decimal_places=4)
     quantity = models.DecimalField(max_digits=16, decimal_places=6)
 
+    affects_contribution_room = models.BooleanField(
+        null=True,
+        help_text="If false, this asset does not affect contribution room"
+    )
+
     class Meta:
         ordering = ['-purchase_date', 'name']
 

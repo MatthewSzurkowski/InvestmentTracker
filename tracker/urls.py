@@ -18,7 +18,7 @@ urlpatterns = [
     path('investments/new/', views.asset_create, name='asset_create'),
     path('investments/<int:pk>/edit/', views.asset_edit, name='asset_edit'),
     path('investments/<int:pk>/delete/', views.asset_delete, name='asset_delete'),
-    path('investments/<int:pk>/update-value/', views.asset_update_value, name='asset_update_value'),
+    # path('investments/<int:pk>/update-value/', views.asset_update_value, name='asset_update_value'),
 
     # Contributions
     path('contributions/', views.contribution_list, name='contribution_list'),

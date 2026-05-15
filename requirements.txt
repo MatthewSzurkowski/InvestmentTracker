@@ -1,0 +1,10 @@
+Django==4.2.11
+djangorestframework>=3.15.0
+celery==5.4.0
+redis==5.0.8
+# Stock / ETF pricing
+yfinance>=0.2.40
+# Production server (optional but good practice)
+gunicorn>=21.2
+# Useful utilities
+python-dotenv>=1.0

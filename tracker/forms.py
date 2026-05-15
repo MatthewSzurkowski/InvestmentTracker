@@ -13,10 +13,34 @@ class AccountForm(forms.ModelForm):
         }
 
 
+from django import forms
+from .models import Asset, Account
+
+
 class AssetForm(forms.ModelForm):
+
+    affects_contribution_room = forms.ChoiceField(
+        choices=[
+            (True, "Yes — counts toward contribution room"),
+            (False, "No — does NOT count toward contribution room"),
+        ],
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
     class Meta:
         model = Asset
-        fields = ['account', 'name', 'ticker', 'asset_type', 'purchase_date', 'purchase_price', 'quantity']
+        fields = [
+            'account',
+            'name',
+            'ticker',
+            'asset_type',
+            'purchase_date',
+            'purchase_price',
+            'quantity',
+            'affects_contribution_room'
+        ]
+
         widgets = {
             'account': forms.Select(attrs={'class': 'form-select'}),
             'name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -29,8 +53,25 @@ class AssetForm(forms.ModelForm):
 
     def __init__(self, user=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if user:
             self.fields['account'].queryset = Account.objects.filter(user=user)
+
+        # ensure correct initial value when editing
+        if self.instance and self.instance.pk:
+            self.fields['affects_contribution_room'].initial = (
+                self.instance.affects_contribution_room
+            )
+
+    def clean_affects_contribution_room(self):
+        value = self.cleaned_data.get("affects_contribution_room")
+
+        if value in [True, "True", "true", "1", "on"]:
+            return True
+        if value in [False, "False", "false", "0", None]:
+            return False
+
+        return None
 
 
 class AssetValueHistoryForm(forms.ModelForm):

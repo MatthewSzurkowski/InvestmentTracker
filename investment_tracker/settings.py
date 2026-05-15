@@ -57,6 +57,15 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'investment_tracker.urls'
 
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
+
+CELERY_BEAT_SCHEDULE = {
+    "update-prices-every-2-min": {
+        "task": "tracker.tasks.refresh_asset_prices",
+        "schedule": 120.0,
+    },
+}
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

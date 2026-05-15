@@ -222,20 +222,20 @@ def asset_delete(request, pk):
     return render(request, 'tracker/confirm_delete.html', {'object': asset, 'object_type': 'Investment'})
 
 
-@login_required
-def asset_update_value(request, pk):
-    asset = get_object_or_404(Asset, pk=pk, user=request.user)
-    if request.method == 'POST':
-        form = AssetValueHistoryForm(request.POST)
-        if form.is_valid():
-            vh = form.save(commit=False)
-            vh.asset = asset
-            vh.save()
-            messages.success(request, 'Value updated.')
-            return redirect('asset_list')
-    else:
-        form = AssetValueHistoryForm(initial={'date': date.today()})
-    return render(request, 'tracker/value_form.html', {'form': form, 'asset': asset})
+# @login_required
+# def asset_update_value(request, pk):
+#     asset = get_object_or_404(Asset, pk=pk, user=request.user)
+#     if request.method == 'POST':
+#         form = AssetValueHistoryForm(request.POST)
+#         if form.is_valid():
+#             vh = form.save(commit=False)
+#             vh.asset = asset
+#             vh.save()
+#             messages.success(request, 'Value updated.')
+#             return redirect('asset_list')
+#     else:
+#         form = AssetValueHistoryForm(initial={'date': date.today()})
+#     return render(request, 'tracker/value_form.html', {'form': form, 'asset': asset})
 
 
 @login_required
