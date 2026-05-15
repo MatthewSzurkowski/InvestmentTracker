@@ -1,0 +1,79 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Investments — InvestTracker{% endblock %}
+{% block page_title %}Investments{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>My Investments</h2>
+  <a href="/investments/new/" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Investment
+  </a>
+</div>
+
+<div class="card">
+  {% if asset_data %}
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Name / Ticker</th>
+          <th>Type</th>
+          <th>Account</th>
+          <th>Purchase Date</th>
+          <th>Qty</th>
+          <th>Avg Cost</th>
+          <th>Cost Basis</th>
+          <th>Current Value</th>
+          <th>Gain / Loss</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in asset_data %}
+        <tr>
+          <td>
+            <div style="font-weight:500; color:#1e293b">{{ row.asset.name }}</div>
+            {% if row.asset.ticker %}<div style="font-size:0.75rem; color:#64748b; font-family:monospace">{{ row.asset.ticker }}</div>{% endif %}
+          </td>
+          <td>
+            <span class="badge badge-blue">{{ row.asset.asset_type }}</span>
+          </td>
+          <td>
+            <span class="badge badge-grey">{{ row.asset.account.type }}</span>
+          </td>
+          <td style="color:#64748b; font-size:0.8rem">{{ row.asset.purchase_date }}</td>
+          <td>{{ row.asset.quantity }}</td>
+          <td>${{ row.asset.purchase_price|floatformat:4 }}</td>
+          <td>${{ row.asset.purchase_value|floatformat:2 }}</td>
+          <td style="font-weight:500">${{ row.current_value|floatformat:2 }}</td>
+          <td>
+            <div class="{% if row.gain_loss >= 0 %}gain{% else %}loss{% endif %}">
+              {% if row.gain_loss >= 0 %}+{% endif %}${{ row.gain_loss|floatformat:2 }}
+            </div>
+            <div style="font-size:0.75rem; {% if row.gain_loss >= 0 %}color:#16a34a{% else %}color:#dc2626{% endif %}">
+              {% if row.gain_loss >= 0 %}+{% endif %}{{ row.gain_loss_pct|floatformat:1 }}%
+            </div>
+          </td>
+          <td>
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <a href="/investments/{{ row.asset.pk }}/update-value/" class="btn btn-secondary btn-sm">Update</a>
+              <a href="/investments/{{ row.asset.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="/investments/{{ row.asset.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center; padding:60px 20px; color:#94a3b8">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    <div style="font-size:1rem; font-weight:500; color:#64748b; margin-bottom:8px">No investments yet</div>
+    <div style="font-size:0.875rem; margin-bottom:20px">Add your first holding to start tracking</div>
+    <a href="/investments/new/" class="btn btn-primary">Add Investment</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — InvestTracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f1f5f9;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .auth-container {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    }
+    .auth-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 1.2rem; font-weight: 700; color: #0f172a;
+      margin-bottom: 32px;
+    }
+    .auth-logo svg { color: #0ea5e9; }
+    h2 { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+    .subtitle { font-size: 0.875rem; color: #64748b; margin-bottom: 28px; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.875rem; font-weight: 500; color: #475569; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px;
+      font-size: 0.875rem; font-family: inherit; color: #1e293b;
+      transition: border-color 0.15s; outline: none;
+    }
+    input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+    .btn {
+      width: 100%; padding: 10px; background: #1a56db; color: white;
+      border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.15s;
+    }
+    .btn:hover { background: #1245b5; }
+    .footer-text { text-align: center; font-size: 0.8rem; color: #64748b; margin-top: 20px; }
+    .footer-text a { color: #1a56db; text-decoration: none; font-weight: 500; }
+    .error { color: #dc2626; font-size: 0.8rem; margin-top: 4px; }
+    ul.errorlist { list-style: none; }
+    ul.errorlist li { color: #dc2626; font-size: 0.8rem; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      InvestTracker
+    </div>
+    <h2>Welcome back</h2>
+    <p class="subtitle">Sign in to your account to continue</p>
+    <form method="post">
+      {% csrf_token %}
+      {% for field in form %}
+        <div class="form-group">
+          <label>{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}{{ field.errors }}{% endif %}
+        </div>
+      {% endfor %}
+      {% if form.non_field_errors %}
+        <div class="error">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <button type="submit" class="btn">Sign In</button>
+    </form>
+    <p class="footer-text">Don't have an account? <a href="/register/">Register</a></p>
+    <p class="footer-text" style="margin-top:8px; color:#94a3b8;">Demo: <strong>demo</strong> / <strong>demo1234</strong></p>
+  </div>
+</body>
+</html>

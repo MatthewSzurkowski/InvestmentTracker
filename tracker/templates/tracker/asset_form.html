@@ -1,0 +1,37 @@
+{% extends 'tracker/base.html' %}
+{% block title %}{{ title }} — InvestTracker{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div style="max-width:600px">
+  <div class="page-header">
+    <h2>{{ title }}</h2>
+  </div>
+
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      <div class="grid grid-2">
+        {% for field in form %}
+          <div class="form-group {% if forloop.first %}col-span-2{% endif %}">
+            <label>{{ field.label }}{% if not field.field.required %} <span style="color:#94a3b8; font-weight:400">(optional)</span>{% endif %}</label>
+            {{ field }}
+            {% if field.errors %}
+              {% for error in field.errors %}
+                <div style="font-size:0.8rem; color:#dc2626; margin-top:4px">{{ error }}</div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      <div style="padding:12px; background:#fffbeb; border:1px solid #fef08a; border-radius:8px; margin-bottom:20px; font-size:0.8rem; color:#92400e">
+        <strong>Note:</strong> Adding an investment automatically records a contribution equal to the purchase value (price × quantity).
+      </div>
+      <div style="display:flex; gap:8px">
+        <button type="submit" class="btn btn-primary">Save Investment</button>
+        <a href="/investments/" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

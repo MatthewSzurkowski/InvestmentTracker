@@ -1,0 +1,85 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Accounts — InvestTracker{% endblock %}
+{% block page_title %}Accounts{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Registered Accounts</h2>
+  <div style="display:flex; gap:8px">
+    <a href="/contributions/new/" class="btn btn-secondary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Contribution
+    </a>
+    <a href="/accounts/new/" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Account
+    </a>
+  </div>
+</div>
+
+{% if account_data %}
+<div class="grid grid-2" style="margin-bottom:24px">
+  {% for row in account_data %}
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px">
+      <div>
+        <div style="font-size:1.1rem; font-weight:700; color:#0f172a">{{ row.account.type }}</div>
+        <div style="font-size:0.8rem; color:#64748b">{{ row.account.year }} Tax Year</div>
+      </div>
+      <div style="display:flex; gap:6px">
+        <a href="/accounts/{{ row.account.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+        <a href="/accounts/{{ row.account.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:16px">
+      <div>
+        <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-bottom:4px">Annual Limit</div>
+        <div style="font-size:1rem; font-weight:600; color:#1e293b">${{ row.account.annual_contribution_limit|floatformat:0 }}</div>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-bottom:4px">Contributed</div>
+        <div style="font-size:1rem; font-weight:600; color:#1e293b">${{ row.total_contributions|floatformat:0 }}</div>
+      </div>
+      <div>
+        <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; margin-bottom:4px">Remaining</div>
+        <div style="font-size:1rem; font-weight:600;
+          {% if row.status == 'green' %}color:#16a34a{% elif row.status == 'red' %}color:#dc2626{% else %}color:#64748b{% endif %}">
+          ${{ row.remaining_room|floatformat:0 }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    {% if row.account.annual_contribution_limit > 0 %}
+    {% with used_pct=row.total_contributions|floatformat:0 %}
+    <div style="height:6px; background:#e2e8f0; border-radius:9999px; overflow:hidden">
+      <div style="height:100%; border-radius:9999px; width:{% widthratio row.total_contributions row.account.annual_contribution_limit 100 %}%; max-width:100%;
+        {% if row.status == 'green' %}background:#16a34a{% elif row.status == 'red' %}background:#dc2626{% else %}background:#94a3b8{% endif %}">
+      </div>
+    </div>
+    <div style="font-size:0.75rem; color:#94a3b8; margin-top:6px; text-align:right">
+      {% widthratio row.total_contributions row.account.annual_contribution_limit 100 %}% used
+    </div>
+    {% endwith %}
+    {% endif %}
+
+    <div style="margin-top:12px">
+      <span class="badge {% if row.status == 'green' %}badge-green{% elif row.status == 'red' %}badge-red{% else %}badge-grey{% endif %}">
+        {% if row.status == 'green' %}Room available{% elif row.status == 'red' %}Over-contributed{% else %}Limit reached{% endif %}
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center; padding:60px 20px">
+  <div style="color:#94a3b8; margin-bottom:16px">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+  </div>
+  <div style="font-size:1rem; font-weight:500; color:#64748b; margin-bottom:8px">No accounts yet</div>
+  <div style="font-size:0.875rem; color:#94a3b8; margin-bottom:20px">Add your TFSA, RRSP, or other registered accounts</div>
+  <a href="/accounts/new/" class="btn btn-primary">Add Account</a>
+</div>
+{% endif %}
+{% endblock %}

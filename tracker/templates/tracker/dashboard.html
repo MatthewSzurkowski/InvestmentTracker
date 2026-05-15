@@ -1,0 +1,246 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Dashboard — InvestTracker{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Row -->
+<div class="grid grid-4" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-title">Total Portfolio Value</div>
+    <div class="stat-value">${{ total_value|floatformat:2 }}</div>
+    <div class="stat-sub">Across {{ account_count }} account{{ account_count|pluralize }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Total Invested</div>
+    <div class="stat-value">${{ total_cost|floatformat:2 }}</div>
+    <div class="stat-sub">{{ asset_count }} holding{{ asset_count|pluralize }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Total Gain / Loss</div>
+    <div class="stat-value {% if total_gain >= 0 %}gain{% else %}loss{% endif %}">
+      {% if total_gain >= 0 %}+{% endif %}${{ total_gain|floatformat:2 }}
+    </div>
+    <div class="stat-sub">Unrealized P&L</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Return</div>
+    <div class="stat-value {% if total_gain >= 0 %}gain{% else %}loss{% endif %}">
+      {% if total_cost > 0 %}
+        {% if total_gain >= 0 %}+{% endif %}{{ total_gain|floatformat:0 }}%
+      {% else %}—{% endif %}
+    </div>
+    <div class="stat-sub">Total return</div>
+  </div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:24px">
+  <!-- Portfolio Value Chart -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px">
+      <div>
+        <div class="card-title">Portfolio Value</div>
+        <div style="font-size:0.8rem; color:#64748b">Historical performance</div>
+      </div>
+    </div>
+    <canvas id="portfolioChart" height="220"></canvas>
+  </div>
+
+  <!-- Contribution Room Chart -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px">
+      <div>
+        <div class="card-title">Contribution Room</div>
+        <div style="font-size:0.8rem; color:#64748b">Current year remaining room</div>
+      </div>
+      <a href="/accounts/new/" class="btn btn-secondary btn-sm">+ Add Account</a>
+    </div>
+    <canvas id="contributionChart" height="220"></canvas>
+  </div>
+</div>
+
+<!-- Net Worth Projection -->
+<div class="card">
+  <div class="card-title" style="margin-bottom:4px">Net Worth Projection</div>
+  <div style="font-size:0.8rem; color:#64748b; margin-bottom:20px">Compound growth calculator</div>
+
+  <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:24px; padding:20px; background:#f8fafc; border-radius:10px; border:1px solid #e2e8f0">
+    <div style="flex:1; min-width:180px">
+      <label style="font-size:0.8rem; font-weight:500; color:#475569; display:block; margin-bottom:6px">Starting Value ($)</label>
+      <input class="form-control" type="number" id="startValue" value="{{ total_value|floatformat:0 }}" min="0" step="100">
+    </div>
+    <div style="flex:1; min-width:180px">
+      <label style="font-size:0.8rem; font-weight:500; color:#475569; display:block; margin-bottom:6px">Annual Return (%)</label>
+      <input class="form-control" type="number" id="annualReturn" value="7" min="0" max="50" step="0.5">
+    </div>
+    <div style="flex:1; min-width:180px">
+      <label style="font-size:0.8rem; font-weight:500; color:#475569; display:block; margin-bottom:6px">Yearly Contribution ($)</label>
+      <input class="form-control" type="number" id="yearlyContrib" value="10000" min="0" step="500">
+    </div>
+    <div style="flex:1; min-width:180px">
+      <label style="font-size:0.8rem; font-weight:500; color:#475569; display:block; margin-bottom:6px">Projection Years</label>
+      <input class="form-control" type="number" id="projYears" value="20" min="1" max="50">
+    </div>
+    <div style="display:flex; align-items:flex-end">
+      <button class="btn btn-primary" onclick="updateProjection()">Calculate</button>
+    </div>
+  </div>
+
+  <canvas id="projectionChart" height="120"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const portfolioData = {{ portfolio_history_json|safe }};
+const contributionData = {{ contribution_data_json|safe }};
+
+// Portfolio Value Chart
+const portfolioCtx = document.getElementById('portfolioChart').getContext('2d');
+const portfolioChart = new Chart(portfolioCtx, {
+  type: 'line',
+  data: {
+    labels: portfolioData.labels,
+    datasets: [{
+      label: 'Portfolio Value',
+      data: portfolioData.values,
+      borderColor: '#1a56db',
+      backgroundColor: 'rgba(26, 86, 219, 0.08)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 4,
+      pointBackgroundColor: '#1a56db',
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        ticks: {
+          callback: v => '$' + v.toLocaleString(),
+          font: { size: 11 }
+        },
+        grid: { color: '#f1f5f9' }
+      },
+      x: {
+        ticks: { font: { size: 11 } },
+        grid: { display: false }
+      }
+    }
+  }
+});
+
+// Contribution Room Chart
+const contribCtx = document.getElementById('contributionChart').getContext('2d');
+const statusColors = {
+  'green': { bar: '#16a34a', remaining: '#bbf7d0' },
+  'grey':  { bar: '#94a3b8', remaining: '#e2e8f0' },
+  'red':   { bar: '#dc2626', remaining: '#fecaca' },
+};
+
+const contribChart = new Chart(contribCtx, {
+  type: 'bar',
+  data: {
+    labels: contributionData.map(d => d.label),
+    datasets: [
+      {
+        label: 'Used',
+        data: contributionData.map(d => Math.max(0, d.used)),
+        backgroundColor: contributionData.map(d => statusColors[d.status]?.bar || '#64748b'),
+        borderRadius: 4,
+      },
+      {
+        label: 'Remaining',
+        data: contributionData.map(d => Math.max(0, d.remaining)),
+        backgroundColor: contributionData.map(d => statusColors[d.status]?.remaining || '#e2e8f0'),
+        borderRadius: 4,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 } } },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.dataset.label}: $${ctx.raw.toLocaleString()}`
+        }
+      }
+    },
+    scales: {
+      x: { stacked: true, grid: { display: false } },
+      y: {
+        stacked: true,
+        ticks: { callback: v => '$' + v.toLocaleString(), font: { size: 11 } },
+        grid: { color: '#f1f5f9' }
+      }
+    }
+  }
+});
+
+// Projection Chart
+const projCtx = document.getElementById('projectionChart').getContext('2d');
+let projChart = null;
+
+function buildProjectionData(start, rate, yearly, years) {
+  const labels = [];
+  const values = [];
+  const currentYear = new Date().getFullYear();
+  let value = parseFloat(start) || 0;
+  const r = (parseFloat(rate) || 0) / 100;
+  const contrib = parseFloat(yearly) || 0;
+  for (let i = 0; i <= years; i++) {
+    labels.push(currentYear + i);
+    values.push(parseFloat(value.toFixed(2)));
+    value = (value + contrib) * (1 + r);
+  }
+  return { labels, values };
+}
+
+function updateProjection() {
+  const start = document.getElementById('startValue').value;
+  const rate = document.getElementById('annualReturn').value;
+  const yearly = document.getElementById('yearlyContrib').value;
+  const years = parseInt(document.getElementById('projYears').value) || 20;
+  const { labels, values } = buildProjectionData(start, rate, yearly, years);
+  if (projChart) {
+    projChart.data.labels = labels;
+    projChart.data.datasets[0].data = values;
+    projChart.update();
+  } else {
+    projChart = new Chart(projCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Projected Value',
+          data: values,
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14,165,233,0.08)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => '$' + ctx.raw.toLocaleString() } }
+        },
+        scales: {
+          y: {
+            ticks: { callback: v => '$' + (v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v.toLocaleString()), font: { size: 11 } },
+            grid: { color: '#f1f5f9' }
+          },
+          x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+}
+
+updateProjection();
+</script>
+{% endblock %}

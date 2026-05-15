@@ -1,0 +1,23 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Confirm Delete — InvestTracker{% endblock %}
+{% block page_title %}Confirm Delete{% endblock %}
+
+{% block content %}
+<div style="max-width:480px">
+  <div class="card">
+    <div style="margin-bottom:20px">
+      <div style="font-size:1.1rem; font-weight:700; color:#0f172a; margin-bottom:8px">Delete {{ object_type }}</div>
+      <div style="font-size:0.875rem; color:#64748b">
+        Are you sure you want to delete <strong>{{ object }}</strong>? This action cannot be undone.
+      </div>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div style="display:flex; gap:8px">
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Contributions — InvestTracker{% endblock %}
+{% block page_title %}Contributions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Contribution History</h2>
+  <a href="/contributions/new/" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Contribution
+  </a>
+</div>
+
+<div class="card">
+  {% if contributions %}
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Type</th>
+          <th>Year</th>
+          <th>Amount</th>
+          <th>Source</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in contributions %}
+        <tr>
+          <td style="font-weight:500">{{ c.account.type }}</td>
+          <td><span class="badge badge-grey">{{ c.account.type }}</span></td>
+          <td>{{ c.year }}</td>
+          <td style="font-weight:600">${{ c.amount|floatformat:2 }}</td>
+          <td>
+            {% if c.auto_generated %}
+              <span class="badge badge-blue">Auto (purchase)</span>
+            {% else %}
+              <span class="badge badge-grey">Manual</span>
+            {% endif %}
+          </td>
+          <td style="color:#64748b; font-size:0.8rem">{{ c.created_at|date:"M d, Y" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center; padding:60px 20px; color:#94a3b8">
+    <div style="font-size:1rem; font-weight:500; color:#64748b; margin-bottom:8px">No contributions recorded</div>
+    <div style="font-size:0.875rem; margin-bottom:20px">Contributions are auto-recorded when you add investments, or you can add them manually</div>
+    <a href="/contributions/new/" class="btn btn-primary">Add Contribution</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
