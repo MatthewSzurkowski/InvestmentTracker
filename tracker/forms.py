@@ -1,5 +1,5 @@
 from django import forms
-from .models import Account, Asset, AssetValueHistory, Contribution
+from .models import Account, Asset, Trade, AssetPriceHistory
 
 
 class AccountForm(forms.ModelForm):
@@ -13,88 +13,47 @@ class AccountForm(forms.ModelForm):
         }
 
 
-from django import forms
-from .models import Asset, Account
-
-
 class AssetForm(forms.ModelForm):
-
-    affects_contribution_room = forms.ChoiceField(
-        choices=[
-            (True, "Yes — counts toward contribution room"),
-            (False, "No — does NOT count toward contribution room"),
-        ],
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
-
     class Meta:
         model = Asset
-        fields = [
-            'account',
-            'name',
-            'ticker',
-            'asset_type',
-            'purchase_date',
-            'purchase_price',
-            'quantity',
-            'affects_contribution_room'
-        ]
-
+        fields = ['name', 'ticker', 'asset_type', 'currency']
         widgets = {
-            'account': forms.Select(attrs={'class': 'form-select'}),
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'ticker': forms.TextInput(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Vanguard XEQT'}),
+            'ticker': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., XEQT'}),
             'asset_type': forms.Select(attrs={'class': 'form-select'}),
-            'purchase_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
+            'currency': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+
+class TradeForm(forms.ModelForm):
+    class Meta:
+        model = Trade
+        fields = ['asset', 'account', 'trade_type', 'quantity', 'purchase_price', 'date', 'affects_contribution_room']
+        widgets = {
+            'asset': forms.Select(attrs={'class': 'form-select'}),
+            'account': forms.Select(attrs={'class': 'form-select'}),
+            'trade_type': forms.Select(attrs={'class': 'form-select'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.000001'}),
+            'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
+            'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'affects_contribution_room': forms.Select(choices=[
+                (True, 'Yes'),
+                (False, 'No'),
+            ], attrs={'class': 'form-select'}),
         }
 
     def __init__(self, user=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         if user:
+            self.fields['asset'].queryset = Asset.objects.filter(user=user)
             self.fields['account'].queryset = Account.objects.filter(user=user)
 
-        # ensure correct initial value when editing
-        if self.instance and self.instance.pk:
-            self.fields['affects_contribution_room'].initial = (
-                self.instance.affects_contribution_room
-            )
 
-    def clean_affects_contribution_room(self):
-        value = self.cleaned_data.get("affects_contribution_room")
-
-        if value in [True, "True", "true", "1", "on"]:
-            return True
-        if value in [False, "False", "false", "0", None]:
-            return False
-
-        return None
-
-
-class AssetValueHistoryForm(forms.ModelForm):
+class AssetPriceHistoryForm(forms.ModelForm):
     class Meta:
-        model = AssetValueHistory
-        fields = ['date', 'value']
+        model = AssetPriceHistory
+        fields = ['date', 'price']
         widgets = {
             'date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'value': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.0001'}),
         }
-
-
-class ContributionForm(forms.ModelForm):
-    class Meta:
-        model = Contribution
-        fields = ['account', 'year', 'amount']
-        widgets = {
-            'account': forms.Select(attrs={'class': 'form-select'}),
-            'year': forms.NumberInput(attrs={'class': 'form-control', 'min': 2000, 'max': 2100}),
-            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-        }
-
-    def __init__(self, user=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if user:
-            self.fields['account'].queryset = Account.objects.filter(user=user)

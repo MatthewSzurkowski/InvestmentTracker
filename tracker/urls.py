@@ -13,14 +13,16 @@ urlpatterns = [
     path('accounts/<int:pk>/edit/', views.account_edit, name='account_edit'),
     path('accounts/<int:pk>/delete/', views.account_delete, name='account_delete'),
 
-    # Assets
-    path('investments/', views.asset_list, name='asset_list'),
-    path('investments/new/', views.asset_create, name='asset_create'),
-    path('investments/<int:pk>/edit/', views.asset_edit, name='asset_edit'),
-    path('investments/<int:pk>/delete/', views.asset_delete, name='asset_delete'),
-    # path('investments/<int:pk>/update-value/', views.asset_update_value, name='asset_update_value'),
+    # Securities (Assets)
+    path('securities/', views.asset_list, name='asset_list'),
+    path('securities/new/', views.asset_create, name='asset_create'),
+    path('securities/<int:pk>/edit/', views.asset_edit, name='asset_edit'),
+    path('securities/<int:pk>/delete/', views.asset_delete, name='asset_delete'),
+    path('securities/<int:pk>/update-price/', views.asset_price_update, name='asset_price_update'),
 
-    # Contributions
-    path('contributions/', views.contribution_list, name='contribution_list'),
-    path('contributions/new/', views.contribution_create, name='contribution_create'),
+    # Trades
+    path('trades/', views.trade_list, name='trade_list'),
+    path('trades/new/', views.trade_create, name='trade_create'),
+    path('trades/<int:pk>/edit/', views.trade_edit, name='trade_edit'),
+    path('trades/<int:pk>/delete/', views.trade_delete, name='trade_delete'),
 ]

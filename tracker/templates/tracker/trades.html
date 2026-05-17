@@ -1,0 +1,96 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Trades — InvestTracker{% endblock %}
+{% block page_title %}Trades{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>Trade History</h2>
+  <a href="/trades/new/" class="btn btn-primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Trade
+  </a>
+</div>
+
+<form method="get" style="margin-bottom:16px; display:flex; gap:12px; align-items:center">
+  <label style="font-size:0.85rem; color:#64748b">Account:</label>
+
+  <select name="account_type"
+          onchange="this.form.submit()"
+          class="form-select"
+          style="width:200px">
+    <option value="">All Accounts</option>
+
+    {% for t in account_types %}
+      <option value="{{ t }}" {% if selected_account_type == t %}selected{% endif %}>
+        {{ t }}
+      </option>
+    {% endfor %}
+  </select>
+</form>
+
+<div class="card">
+  {% if trades %}
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Ticker</th>
+          <th>Type</th>
+          <th>Account</th>
+          <th>Quantity</th>
+          <th>Purchase Price</th>
+          <th>Book Cost</th>
+          <th>Current Asset Price</th>
+          <th>Total Value</th>
+          <th>Gain / Loss</th>
+          <th>Year</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for trade in trades %}
+        <tr>
+          <td style="color:#64748b; font-size:0.85rem">{{ trade.date|date:"M d, Y" }}</td>
+          <td style="font-weight:600; color:#0ea5e9">{{ trade.asset.ticker }}</td>
+          <td>
+            <span class="badge {% if trade.trade_type == 'buy' %}badge-green{% else %}badge-red{% endif %}">
+              {{ trade.get_trade_type_display }}
+            </span>
+          </td>
+          <td><span class="badge badge-grey">{{ trade.account.type }}</span></td>
+          <td>{{ trade.quantity|floatformat:2 }}</td>
+          <td>${{ trade.purchase_price|floatformat:4 }}</td>
+          <td>${{ trade.book_cost|floatformat:2 }}</td>
+          <td>${{ trade.asset_price|floatformat:2 }}</td>
+          <td style="font-weight:600">${{ trade.current_value|floatformat:2 }}</td>
+          <td>
+            <div class="{% if trade.gain_loss >= 0 %}gain{% else %}loss{% endif %}">
+              {% if trade.gain_loss >= 0 %}+{% endif %}${{ trade.gain_loss|floatformat:2 }}
+            </div>
+            <div style="font-size:0.75rem; {% if trade.gain_loss >= 0 %}color:#16a34a{% else %}color:#dc2626{% endif %}">
+              {% if trade.gain_loss >= 0 %}+{% endif %}{{ trade.gain_loss_pct|floatformat:1 }}%
+            </div>
+          </td>
+          <td>{{ trade.year }}</td>
+          <td>
+            <div style="display:flex; gap:4px">
+              <a href="/trades/{{ trade.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="/trades/{{ trade.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center; padding:60px 20px; color:#94a3b8">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px"><polyline points="23 6 13.5 15.5 8.5 10.5 1 17"/><polyline points="17 6 23 6 23 12"/></svg>
+    <div style="font-size:1rem; font-weight:500; color:#64748b; margin-bottom:8px">No trades yet</div>
+    <div style="font-size:0.875rem; margin-bottom:20px">Record your buy and sell transactions</div>
+    <a href="/trades/new/" class="btn btn-primary">Add Trade</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

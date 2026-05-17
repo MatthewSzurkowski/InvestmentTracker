@@ -8,12 +8,12 @@
   <div class="card">
     <div class="card-title">Total Portfolio Value</div>
     <div class="stat-value">${{ total_value|floatformat:2 }}</div>
-    <div class="stat-sub">Across {{ account_count }} account{{ account_count|pluralize }}</div>
+    <div class="stat-sub">Across all holdings</div>
   </div>
   <div class="card">
-    <div class="card-title">Total Invested</div>
+    <div class="card-title">Total Cost Basis</div>
     <div class="stat-value">${{ total_cost|floatformat:2 }}</div>
-    <div class="stat-sub">{{ asset_count }} holding{{ asset_count|pluralize }}</div>
+    <div class="stat-sub">All positions</div>
   </div>
   <div class="card">
     <div class="card-title">Total Gain / Loss</div>
@@ -26,14 +26,15 @@
     <div class="card-title">Return</div>
     <div class="stat-value {% if total_gain >= 0 %}gain{% else %}loss{% endif %}">
       {% if total_cost > 0 %}
-        {% if total_gain >= 0 %}+{% endif %}{{ total_gain|floatformat:0 }}%
+        {% if total_return >= 0 %}+{% endif %}{{ total_return|floatformat:1 }}%
       {% else %}—{% endif %}
     </div>
     <div class="stat-sub">Total return</div>
   </div>
 </div>
 
-<div class="grid grid-2" style="margin-bottom:24px">
+<div class="grid grid-3" style="margin-bottom:24px">
+
   <!-- Portfolio Value Chart -->
   <div class="card">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px">
@@ -43,6 +44,17 @@
       </div>
     </div>
     <canvas id="portfolioChart" height="220"></canvas>
+  </div>
+
+  <!-- Account Value From Trades -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px">
+      <div>
+        <div class="card-title">Account Value</div>
+        <div style="font-size:0.8rem; color:#64748b">Based on trade history</div>
+      </div>
+    </div>
+    <canvas id="accountValueChart" height="220"></canvas>
   </div>
 
   <!-- Contribution Room Chart -->
@@ -55,6 +67,173 @@
       <a href="/accounts/new/" class="btn btn-secondary btn-sm">+ Add Account</a>
     </div>
     <canvas id="contributionChart" height="220"></canvas>
+  </div>
+
+</div>
+
+<!-- Portfolio Overview -->
+<div class="grid grid-2" style="margin-bottom:24px">
+  <!-- Holdings Table -->
+  <div class="card col-span-2">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+      <div>
+        <div class="card-title">All Holdings</div>
+        <div style="font-size:0.8rem; color:#64748b">Aggregated across all accounts</div>
+      </div>
+      <a href="/securities/new/" class="btn btn-secondary btn-sm">+ Add Security</a>
+    </div>
+    <div class="table-container">
+      <table style="font-size:0.85rem">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Value</th>
+            <th>Cost</th>
+            <th>Gain/Loss</th>
+            <th>Return</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for holding in holdings %}
+          <tr>
+            <td style="font-weight:600; color:#0ea5e9">{{ holding.asset.ticker }}</td>
+            <td>{{ holding.asset.name }}</td>
+            <td><span class="badge badge-blue">{{ holding.asset.asset_type }}</span></td>
+            <td>{{ holding.quantity|floatformat:2 }}</td>
+            <td>
+              ${{ holding.price|floatformat:4 }}
+              <span style="color:#94a3b8; font-size:0.75rem;">
+                {{ holding.asset.currency }}
+              </span>
+            </td>
+            <td style="font-weight:600">
+              ${{ holding.value|floatformat:2 }}
+              <span style="color:#94a3b8; font-size:0.75rem;">
+                CAD
+              </span>
+            </td>
+            <td>
+              ${{ holding.cost|floatformat:2 }}
+               <span style="color:#94a3b8; font-size:0.75rem;">
+                CAD
+              </span>
+            </td>
+            <td class="{% if holding.gain >= 0 %}gain{% else %}loss{% endif %}">
+              {% if holding.gain >= 0 %}+{% endif %}${{ holding.gain|floatformat:2 }}
+               <span style="color:#94a3b8; font-size:0.75rem;">
+                CAD
+              </span>
+            </td>
+            <td class="{% if holding.gain_pct >= 0 %}gain{% else %}loss{% endif %}">
+              {% if holding.gain_pct >= 0 %}+{% endif %}{{ holding.gain_pct|floatformat:1 }}%
+            </td>
+            <td>
+              <div style="display:flex; gap:4px">
+                <a href="/trades/?asset={{ holding.asset.pk }}" class="btn btn-secondary btn-sm" title="Trades">↔</a>
+                <a href="/securities/{{ holding.asset.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="10" style="text-align:center; padding:40px; color:#94a3b8">
+              No holdings. <a href="/securities/new/" style="color:#1a56db; font-weight:500">Add a security</a> to get started.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Portfolio Allocation Pie Chart -->
+  <div class="card col-span-2">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+      <div>
+        <div class="card-title">Asset Allocation</div>
+        <div style="font-size:0.8rem; color:#64748b">By value</div>
+      </div>
+    </div>
+    <canvas id="allocationChart" height="220" style="display:block; margin:0 auto;"></canvas>
+  </div>
+</div>
+
+<!-- Per-Account Breakdown -->
+{% if account_data %}
+<div style="margin-bottom:24px">
+  <div style="margin-bottom:16px">
+    <div class="card-title">Account Breakdown</div>
+  </div>
+  <div class="grid grid-2">
+    {% for acc_row in account_data %}
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px">
+        <div>
+          <div style="font-size:1.1rem; font-weight:700; color:#0f172a">{{ acc_row.account.type }}</div>
+          <div style="font-size:0.8rem; color:#64748b">{{ acc_row.account.year }} Tax Year</div>
+        </div>
+        <a href="/accounts/{{ acc_row.account.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px">
+        <div>
+          <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8">Value</div>
+          <div style="font-size:1rem; font-weight:600; color:#1e293b">${{ acc_row.value|floatformat:2 }}</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8">Cost</div>
+          <div style="font-size:1rem; font-weight:600; color:#1e293b">${{ acc_row.cost|floatformat:2 }}</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8">Gain/Loss</div>
+          <div style="font-size:1rem; font-weight:600; {% if acc_row.gain >= 0 %}color:#16a34a{% else %}color:#dc2626{% endif %}">
+            {% if acc_row.gain >= 0 %}+{% endif %}${{ acc_row.gain|floatformat:2 }}
+          </div>
+        </div>
+      </div>
+
+      {% if acc_row.account.annual_contribution_limit > 0 %}
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+          <span style="font-size:0.8rem; font-weight:500; color:#64748b">Contribution Room</span>
+          <span class="badge {% if acc_row.status == 'green' %}badge-green{% elif acc_row.status == 'red' %}badge-red{% else %}badge-grey{% endif %}">
+            {% if acc_row.status == 'green' %}Available{% elif acc_row.status == 'red' %}Over{% else %}Full{% endif %}
+          </span>
+        </div>
+        <div style="font-size:1rem; font-weight:600; {% if acc_row.status == 'green' %}color:#16a34a{% elif acc_row.status == 'red' %}color:#dc2626{% else %}color:#64748b{% endif %}">
+          ${{ acc_row.room|floatformat:0 }}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if acc_row.holdings %}
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid #e2e8f0">
+        <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-bottom:8px">Holdings</div>
+        <div style="display:flex; flex-direction:column; gap:6px">
+          {% for holding in acc_row.holdings %}
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.8rem">
+            <div>
+              <div style="font-weight:500; color:#1e293b">{{ holding.asset.ticker }}</div>
+              <div style="color:#94a3b8">{{ holding.quantity|floatformat:2 }} @ ${{ holding.price|floatformat:2 }}</div>
+            </div>
+            <div style="text-align:right; font-weight:500">
+              <div>${{ holding.value|floatformat:2 }}</div>
+              <div class="{% if holding.gain >= 0 %}gain{% else %}loss{% endif %}">
+                {% if holding.gain >= 0 %}+{% endif %}${{ holding.gain|floatformat:0 }}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
 </div>
 
@@ -87,96 +266,10 @@
 
   <canvas id="projectionChart" height="120"></canvas>
 </div>
+{% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const portfolioData = {{ portfolio_history_json|safe }};
-const contributionData = {{ contribution_data_json|safe }};
-
-// Portfolio Value Chart
-const portfolioCtx = document.getElementById('portfolioChart').getContext('2d');
-const portfolioChart = new Chart(portfolioCtx, {
-  type: 'line',
-  data: {
-    labels: portfolioData.labels,
-    datasets: [{
-      label: 'Portfolio Value',
-      data: portfolioData.values,
-      borderColor: '#1a56db',
-      backgroundColor: 'rgba(26, 86, 219, 0.08)',
-      borderWidth: 2,
-      fill: true,
-      tension: 0.3,
-      pointRadius: 4,
-      pointBackgroundColor: '#1a56db',
-    }]
-  },
-  options: {
-    responsive: true,
-    plugins: { legend: { display: false } },
-    scales: {
-      y: {
-        ticks: {
-          callback: v => '$' + v.toLocaleString(),
-          font: { size: 11 }
-        },
-        grid: { color: '#f1f5f9' }
-      },
-      x: {
-        ticks: { font: { size: 11 } },
-        grid: { display: false }
-      }
-    }
-  }
-});
-
-// Contribution Room Chart
-const contribCtx = document.getElementById('contributionChart').getContext('2d');
-const statusColors = {
-  'green': { bar: '#16a34a', remaining: '#bbf7d0' },
-  'grey':  { bar: '#94a3b8', remaining: '#e2e8f0' },
-  'red':   { bar: '#dc2626', remaining: '#fecaca' },
-};
-
-const contribChart = new Chart(contribCtx, {
-  type: 'bar',
-  data: {
-    labels: contributionData.map(d => d.label),
-    datasets: [
-      {
-        label: 'Used',
-        data: contributionData.map(d => Math.max(0, d.used)),
-        backgroundColor: contributionData.map(d => statusColors[d.status]?.bar || '#64748b'),
-        borderRadius: 4,
-      },
-      {
-        label: 'Remaining',
-        data: contributionData.map(d => Math.max(0, d.remaining)),
-        backgroundColor: contributionData.map(d => statusColors[d.status]?.remaining || '#e2e8f0'),
-        borderRadius: 4,
-      },
-    ]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { position: 'bottom', labels: { font: { size: 11 } } },
-      tooltip: {
-        callbacks: {
-          label: ctx => `${ctx.dataset.label}: $${ctx.raw.toLocaleString()}`
-        }
-      }
-    },
-    scales: {
-      x: { stacked: true, grid: { display: false } },
-      y: {
-        stacked: true,
-        ticks: { callback: v => '$' + v.toLocaleString(), font: { size: 11 } },
-        grid: { color: '#f1f5f9' }
-      }
-    }
-  }
-});
 
 // Projection Chart
 const projCtx = document.getElementById('projectionChart').getContext('2d');
@@ -242,5 +335,173 @@ function updateProjection() {
 }
 
 updateProjection();
+  
+const allocationData = {{ allocation_json|safe }};
+const portfolioData = {{ portfolio_history_json|safe }};
+const contributionData = {{ contribution_data_json|safe }};
+
+const colors = [
+  '#1a56db', '#0ea5e9', '#06b6d4', '#14b8a6', '#10b981', '#84cc16', '#eab308', '#f59e0b', '#f97316', '#ef4444'
+];
+
+// Asset Allocation Pie Chart
+const allocCtx = document.getElementById('allocationChart').getContext('2d');
+new Chart(allocCtx, {
+  type: 'doughnut',
+    data: {
+    labels: allocationData.map(d => d.label),
+    datasets: [{
+      data: allocationData.map(d => d.value),
+      backgroundColor: [
+        '#1a56db', '#0ea5e9', '#06b6d4', '#14b8a6',
+        '#10b981', '#84cc16', '#eab308', '#f59e0b',
+        '#f97316', '#ef4444'
+      ],
+      borderColor: '#fff',
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' }
+    }
+  }
+});
+
+// Portfolio Value Chart
+const portfolioCtx = document.getElementById('portfolioChart').getContext('2d');
+const portfolioChart = new Chart(portfolioCtx, {
+  type: 'line',
+  data: {
+    labels: portfolioData.labels,
+    datasets: [{
+      label: 'Portfolio Value',
+      data: portfolioData.values,
+      borderColor: '#1a56db',
+      backgroundColor: 'rgba(26, 86, 219, 0.08)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 4,
+      pointBackgroundColor: '#1a56db',
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: {
+        ticks: {
+          callback: v => '$' + v.toLocaleString(),
+          font: { size: 11 }
+        },
+        grid: { color: '#f1f5f9' }
+      },
+      x: {
+        ticks: { font: { size: 11 } },
+        grid: { display: false }
+      }
+    }
+  }
+});
+
+// Account value based on trades
+const accountValueData = {{ account_value_history_json|safe }};
+const accountCtx = document.getElementById('accountValueChart').getContext('2d');
+
+new Chart(accountCtx, {
+  type: 'line',
+  data: {
+    labels: accountValueData.labels,
+    datasets: accountValueData.datasets.map((acc, idx) => ({
+      label: acc.label,
+      data: acc.values,
+      borderColor: colors[idx % colors.length],
+      backgroundColor: colors[idx % colors.length] + '22',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 3,
+    }))
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { font: { size: 11 } }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.dataset.label}: $${ctx.raw.toLocaleString()}`
+        }
+      }
+    },
+    scales: {
+      y: {
+        ticks: {
+          callback: v => '$' + v.toLocaleString(),
+          font: { size: 11 }
+        },
+        grid: { color: '#f1f5f9' }
+      },
+      x: {
+        ticks: { font: { size: 11 } },
+        grid: { display: false }
+      }
+    }
+  }
+});
+
+
+// Contribution Room Chart
+const contribCtx = document.getElementById('contributionChart').getContext('2d');
+const statusColors = {
+  'green': { bar: '#16a34a', remaining: '#bbf7d0' },
+  'grey':  { bar: '#94a3b8', remaining: '#e2e8f0' },
+  'red':   { bar: '#dc2626', remaining: '#fecaca' },
+};
+
+const contribChart = new Chart(contribCtx, {
+  type: 'bar',
+  data: {
+    labels: contributionData.map(d => d.label),
+    datasets: [
+      {
+        label: 'Used',
+        data: contributionData.map(d => Math.max(0, d.used)),
+        backgroundColor: contributionData.map(d => statusColors[d.status]?.bar || '#64748b'),
+        borderRadius: 4,
+      },
+      {
+        label: 'Remaining',
+        data: contributionData.map(d => Math.max(0, d.remaining)),
+        backgroundColor: contributionData.map(d => statusColors[d.status]?.remaining || '#e2e8f0'),
+        borderRadius: 4,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 } } },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.dataset.label}: $${ctx.raw.toLocaleString()}`
+        }
+      }
+    },
+    scales: {
+      x: { stacked: true, grid: { display: false } },
+      y: {
+        stacked: true,
+        ticks: { callback: v => '$' + v.toLocaleString(), font: { size: 11 } },
+        grid: { color: '#f1f5f9' }
+      }
+    }
+  }
+});
+
 </script>
 {% endblock %}

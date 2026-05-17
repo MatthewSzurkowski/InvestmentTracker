@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Account, Asset, Contribution, AssetValueHistory
+from .models import Account, Asset, Trade, AssetPriceHistory
 
 
 @admin.register(Account)
@@ -10,17 +10,17 @@ class AccountAdmin(admin.ModelAdmin):
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ['name', 'ticker', 'asset_type', 'account', 'purchase_date', 'purchase_price', 'quantity']
-    list_filter = ['asset_type']
+    list_display = ['user', 'ticker', 'name', 'asset_type', 'currency']
+    list_filter = ['asset_type', 'currency']
 
 
-@admin.register(Contribution)
-class ContributionAdmin(admin.ModelAdmin):
-    list_display = ['user', 'account', 'year', 'amount', 'auto_generated', 'created_at']
-    list_filter = ['auto_generated', 'year']
+@admin.register(Trade)
+class TradeAdmin(admin.ModelAdmin):
+    list_display = ['user', 'asset', 'account', 'trade_type', 'quantity', 'purchase_price', 'date']
+    list_filter = ['trade_type', 'date']
 
 
-@admin.register(AssetValueHistory)
-class AssetValueHistoryAdmin(admin.ModelAdmin):
-    list_display = ['asset', 'date', 'value']
+@admin.register(AssetPriceHistory)
+class AssetPriceHistoryAdmin(admin.ModelAdmin):
+    list_display = ['asset', 'date', 'price']
     list_filter = ['date']

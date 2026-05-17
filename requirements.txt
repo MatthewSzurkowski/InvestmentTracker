@@ -8,3 +8,5 @@ yfinance>=0.2.40
 gunicorn>=21.2
 # Useful utilities
 python-dotenv>=1.0
+forex-python==1.9.2
+simplejson==4.1.1

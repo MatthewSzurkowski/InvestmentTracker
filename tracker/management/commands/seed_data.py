@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from tracker.models import Account, Asset, AssetValueHistory, Contribution
+from tracker.models import Account, Asset, Trade, AssetPriceHistory
 from datetime import date
 from decimal import Decimal
 
@@ -19,6 +19,7 @@ class Command(BaseCommand):
 
         current_year = date.today().year
 
+        # Create accounts
         accounts_data = [
             ('TFSA', current_year, Decimal('7000.00')),
             ('RRSP', current_year, Decimal('31560.00')),
@@ -35,99 +36,134 @@ class Command(BaseCommand):
             accounts[acc_type] = acc
             self.stdout.write(f'  Account: {acc_type} {year}')
 
-        assets_data = [
+        # Create securities (Assets)
+        securities_data = [
+            {'ticker': 'VCN', 'name': 'Vanguard FTSE Canada All Cap Index ETF', 'type': 'ETF', 'currency': 'CAD'},
+            {'ticker': 'XUS', 'name': 'iShares Core S&P 500 ETF', 'type': 'ETF', 'currency': 'CAD'},
+            {'ticker': 'RY', 'name': 'Royal Bank of Canada', 'type': 'Stock', 'currency': 'CAD'},
+            {'ticker': 'ZAG', 'name': 'BMO Aggregate Bond Index ETF', 'type': 'ETF', 'currency': 'CAD'},
+            {'ticker': 'XEQT', 'name': 'Vanguard Balanced ETF Portfolio', 'type': 'ETF', 'currency': 'CAD'},
+            {'ticker': 'BTC', 'name': 'Bitcoin', 'type': 'Crypto', 'currency': 'USD'},
+        ]
+
+        assets = {}
+        for sec in securities_data:
+            asset, created = Asset.objects.get_or_create(
+                user=user,
+                ticker=sec['ticker'],
+                defaults={
+                    'name': sec['name'],
+                    'asset_type': sec['type'],
+                    'currency': sec['currency'],
+                }
+            )
+            assets[sec['ticker']] = asset
+            if created:
+                self.stdout.write(f'  Security: {asset.ticker} - {asset.name}')
+
+        # Create trades with price history
+        trades_data = [
             {
-                'account': accounts['TFSA'],
-                'name': 'Vanguard FTSE Canada All Cap Index ETF',
-                'ticker': 'VCN',
-                'asset_type': 'ETF',
-                'purchase_date': date(current_year, 1, 15),
-                'purchase_price': Decimal('45.20'),
-                'quantity': Decimal('50.000000'),
-                'history': [
-                    (date(current_year, 2, 1), Decimal('46.10')),
-                    (date(current_year, 3, 1), Decimal('47.50')),
-                    (date(current_year, 4, 1), Decimal('46.80')),
-                ],
+                'asset': 'VCN',
+                'account': 'TFSA',
+                'type': 'buy',
+                'qty': Decimal('50'),
+                'price': Decimal('45.20'),
+                'date': date(current_year, 1, 15),
+                'prices': [(date(current_year, 2, 1), Decimal('46.10')), (date(current_year, 3, 1), Decimal('47.50')), (date(current_year, 4, 1), Decimal('46.80'))],
             },
             {
-                'account': accounts['TFSA'],
-                'name': 'iShares Core S&P 500 ETF',
-                'ticker': 'XUS',
-                'asset_type': 'ETF',
-                'purchase_date': date(current_year, 2, 10),
-                'purchase_price': Decimal('62.30'),
-                'quantity': Decimal('30.000000'),
-                'history': [
-                    (date(current_year, 3, 1), Decimal('64.50')),
-                    (date(current_year, 4, 1), Decimal('63.20')),
-                ],
+                'asset': 'XUS',
+                'account': 'TFSA',
+                'type': 'buy',
+                'qty': Decimal('30'),
+                'price': Decimal('62.30'),
+                'date': date(current_year, 2, 10),
+                'prices': [(date(current_year, 3, 1), Decimal('64.50')), (date(current_year, 4, 1), Decimal('63.20'))],
             },
             {
-                'account': accounts['RRSP'],
-                'name': 'Royal Bank of Canada',
-                'ticker': 'RY',
-                'asset_type': 'Stock',
-                'purchase_date': date(current_year, 1, 20),
-                'purchase_price': Decimal('128.50'),
-                'quantity': Decimal('20.000000'),
-                'history': [
-                    (date(current_year, 2, 15), Decimal('131.20')),
-                    (date(current_year, 3, 15), Decimal('133.80')),
-                ],
+                'asset': 'RY',
+                'account': 'RRSP',
+                'type': 'buy',
+                'qty': Decimal('20'),
+                'price': Decimal('128.50'),
+                'date': date(current_year, 1, 20),
+                'prices': [(date(current_year, 2, 15), Decimal('131.20')), (date(current_year, 3, 15), Decimal('133.80'))],
             },
             {
-                'account': accounts['RRSP'],
-                'name': 'BMO Aggregate Bond Index ETF',
-                'ticker': 'ZAG',
-                'asset_type': 'ETF',
-                'purchase_date': date(current_year, 1, 20),
-                'purchase_price': Decimal('14.25'),
-                'quantity': Decimal('200.000000'),
-                'history': [
-                    (date(current_year, 2, 15), Decimal('14.40')),
-                    (date(current_year, 3, 15), Decimal('14.35')),
-                ],
+                'asset': 'ZAG',
+                'account': 'RRSP',
+                'type': 'buy',
+                'qty': Decimal('200'),
+                'price': Decimal('14.25'),
+                'date': date(current_year, 1, 20),
+                'prices': [(date(current_year, 2, 15), Decimal('14.40')), (date(current_year, 3, 15), Decimal('14.35'))],
             },
             {
-                'account': accounts['FHSA'],
-                'name': 'Vanguard Balanced ETF Portfolio',
-                'ticker': 'VBAL',
-                'asset_type': 'ETF',
-                'purchase_date': date(current_year, 3, 5),
-                'purchase_price': Decimal('33.80'),
-                'quantity': Decimal('100.000000'),
-                'history': [
-                    (date(current_year, 4, 1), Decimal('34.50')),
-                ],
+                'asset': 'XEQT',
+                'account': 'FHSA',
+                'type': 'buy',
+                'qty': Decimal('100'),
+                'price': Decimal('33.80'),
+                'date': date(current_year, 3, 5),
+                'prices': [(date(current_year, 4, 1), Decimal('34.50'))],
             },
             {
-                'account': accounts['Non-Registered'],
-                'name': 'Bitcoin',
-                'ticker': 'BTC',
-                'asset_type': 'Crypto',
-                'purchase_date': date(current_year, 1, 5),
-                'purchase_price': Decimal('52000.00'),
-                'quantity': Decimal('0.100000'),
-                'history': [
-                    (date(current_year, 2, 1), Decimal('58000.00')),
-                    (date(current_year, 3, 1), Decimal('65000.00')),
-                    (date(current_year, 4, 1), Decimal('60000.00')),
-                ],
+                'asset': 'BTC',
+                'account': 'Non-Registered',
+                'type': 'buy',
+                'qty': Decimal('0.1'),
+                'price': Decimal('52000.00'),
+                'date': date(current_year, 1, 5),
+                'prices': [(date(current_year, 2, 1), Decimal('58000.00')), (date(current_year, 3, 1), Decimal('65000.00')), (date(current_year, 4, 1), Decimal('60000.00'))],
             },
         ]
 
-        for ad in assets_data:
-            history = ad.pop('history')
-            asset, created = Asset.objects.get_or_create(
+        for td in trades_data:
+            asset = assets[td['asset']]
+            account = accounts[td['account']]
+            trade_year = td['date'].year
+
+            trade, _ = Trade.objects.get_or_create(
                 user=user,
-                account=ad['account'],
-                ticker=ad['ticker'],
-                defaults=ad,
+                asset=asset,
+                account=account,
+                date=td['date'],
+                defaults={
+                    'trade_type': td['type'],
+                    'quantity': td['qty'],
+                    'price': td['price'],
+                    'year': trade_year,
+                }
             )
-            if created:
-                self.stdout.write(f'  Asset: {asset.name}')
-            for h_date, h_value in history:
-                AssetValueHistory.objects.get_or_create(asset=asset, date=h_date, defaults={'value': h_value})
+            self.stdout.write(f'    Trade: {td["type"].upper()} {td["qty"]} {td["asset"]} @ ${td["price"]}')
+
+            # Create price history
+            for price_date, price_value in td['prices']:
+                AssetPriceHistory.objects.get_or_create(
+                    asset=asset,
+                    date=price_date,
+                    defaults={'price': price_value}
+                )
+
+        # Set initial prices for all assets
+        initial_prices = {
+            'VCN': Decimal('46.80'),
+            'XUS': Decimal('63.20'),
+            'RY': Decimal('133.80'),
+            'ZAG': Decimal('14.35'),
+            'XEQT': Decimal('34.50'),
+            'BTC': Decimal('60000.00'),
+        }
+
+        for ticker, price in initial_prices.items():
+            asset = assets[ticker]
+            latest_price = asset.price_history.order_by('-date').first()
+            if not latest_price or latest_price.price != price:
+                AssetPriceHistory.objects.get_or_create(
+                    asset=asset,
+                    date=date.today(),
+                    defaults={'price': price}
+                )
 
         self.stdout.write(self.style.SUCCESS('Seed data created. Login: demo / demo1234'))

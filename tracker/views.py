@@ -1,15 +1,17 @@
 import json
 from decimal import Decimal
 from datetime import date
+from collections import defaultdict
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib import messages
+from django.db.models import Sum, F, DecimalField
 
-from .models import Account, Asset, Contribution, AssetValueHistory
-from .forms import AccountForm, AssetForm, AssetValueHistoryForm, ContributionForm
+from .models import Account, Asset, Trade, AssetPriceHistory
+from .forms import AccountForm, AssetForm, TradeForm, AssetPriceHistoryForm
 
 
 def login_view(request):
@@ -44,13 +46,66 @@ def logout_view(request):
     return redirect('login')
 
 
+
+def build_account_value_history(user):
+    trades = (
+        Trade.objects
+        .filter(user=user)
+        .select_related("account")
+        .order_by("date")
+    )
+
+    # account -> month -> net value
+    monthly = defaultdict(lambda: defaultdict(Decimal))
+
+    for t in trades:
+        account_name = f"{t.account.type} ({t.account.year})"
+        month_key = t.date.strftime("%Y-%m")
+
+        delta = t.quantity * t.purchase_price
+        if t.trade_type == "sell":
+            delta = -delta
+
+        monthly[account_name][month_key] += delta
+
+    # sort months globally
+    all_months = sorted({
+        m for acc in monthly.values() for m in acc.keys()
+    })
+
+    datasets = []
+
+    for account_name, months in monthly.items():
+        values = []
+        running_total = Decimal("0.00")
+
+        for m in all_months:
+            running_total += months.get(m, Decimal("0.00"))
+            values.append(float(running_total))
+
+        datasets.append({
+            "label": account_name,
+            "values": values
+        })
+
+    return {
+        "labels": all_months,
+        "datasets": datasets
+    }
+
+
 @login_required
 def dashboard(request):
     user = request.user
-    assets = list(Asset.objects.filter(user=user).select_related('account').prefetch_related('value_history'))
+    assets = Asset.objects.filter(user=user).prefetch_related('price_history', 'trades')
     accounts = Account.objects.filter(user=user)
 
-    portfolio_history = _build_portfolio_history(assets)
+    # Build portfolio holdings
+    holdings = []
+    total_value = Decimal('0.00')
+    total_cost = Decimal('0.00')
+
+    portfolio_history = build_portfolio_history(user)
 
     current_year = date.today().year
     contribution_data = []
@@ -63,58 +118,144 @@ def dashboard(request):
             'status': account.room_status(),
         })
 
-    total_value = sum(a.current_value() for a in assets)
-    total_cost = sum(a.purchase_value() for a in assets)
+    for asset in assets:
+        qty = asset.total_quantity(user=user)
+        if qty <= 0:
+            continue
+
+        price = asset.current_price()
+        if not price:
+            price = Decimal('0.00')
+
+        value = asset.total_value()
+        cost = asset.cost_basis(user=user)
+        gain = value - cost
+
+        holdings.append({
+            'portfolio_history_json': json.dumps(portfolio_history),
+            'contribution_data_json': json.dumps(contribution_data),
+            'asset': asset,
+            'quantity': qty,
+            'price': price,
+            'value': value,
+            'cost': cost,
+            'gain': gain,
+            'gain_pct': (gain / cost * 100) if cost > 0 else Decimal('0.00'),
+        })
+        total_value += value
+        total_cost += cost
+        
     total_gain = total_value - total_cost
+    total_return = (
+        ((total_value - total_cost) / total_cost * 100)
+        if total_cost
+        else 0
+    )
+
+    # Portfolio allocation pie chart data
+    allocation_data = [
+        {'label': h['asset'].ticker, 'value': float(h['value'])}
+        for h in holdings
+    ]
+
+    # Per-account breakdown
+    account_data = []
+    for account in accounts:
+        account_holdings = []
+        account_value = Decimal('0.00')
+        account_cost = Decimal('0.00')
+
+        for asset in assets:
+            qty = asset.account_quantity(account)
+            if qty <= 0:
+                continue
+
+            price = asset.current_price()
+            if not price:
+                price = Decimal('0.00')
+
+            value = asset.account_value(account)
+            cost = asset.account_cost_basis(account)
+            gain = value - cost
+
+            account_holdings.append({
+                'asset': asset,
+                'quantity': qty,
+                'price': price,
+                'value': value,
+                'cost': cost,
+                'gain': gain,
+            })
+            account_value += value
+            account_cost += cost
+
+        account_data.append({
+            'account': account,
+            'holdings': account_holdings,
+            'value': account_value,
+            'cost': account_cost,
+            'gain': account_value - account_cost,
+            'room': account.remaining_room(),
+            'status': account.room_status(),
+        })
+
+    account_value_history_json = build_account_value_history(user)
 
     context = {
-        'portfolio_history_json': json.dumps(portfolio_history),
-        'contribution_data_json': json.dumps(contribution_data),
+        'holdings': holdings,
         'total_value': total_value,
         'total_cost': total_cost,
         'total_gain': total_gain,
-        'asset_count': len(assets),
-        'account_count': accounts.count(),
+        'total_return': total_return,
+        'account_value_history_json': account_value_history_json,
+
+        # 🔥 THESE WERE MISSING
+        'portfolio_history_json': json.dumps(portfolio_history),
+        'contribution_data_json': json.dumps(contribution_data),
+
+        'allocation_json': json.dumps(allocation_data),
+        'account_data': account_data,
     }
     return render(request, 'tracker/dashboard.html', context)
 
 
-def _build_portfolio_history(assets):
-    if not assets:
-        return {'labels': [], 'values': []}
+def build_portfolio_history(user):
+    assets = Asset.objects.filter(user=user).prefetch_related('price_history', 'trades')
 
-    all_dates = set()
-    for asset in assets:
-        for vh in asset.value_history.all():
-            all_dates.add(vh.date)
-        all_dates.add(asset.purchase_date)
+    dates = sorted(
+        set(
+            AssetPriceHistory.objects
+            .filter(asset__user=user)
+            .values_list('date', flat=True)
+        )
+    )
 
-    if not all_dates:
-        return {'labels': [], 'values': []}
-
-    sorted_dates = sorted(all_dates)
     labels = []
     values = []
 
-    for d in sorted_dates:
-        total = Decimal('0')
+    for d in dates:
+        total = Decimal('0.00')
+
         for asset in assets:
-            if asset.purchase_date > d:
+            price = (
+                asset.price_history
+                .filter(date__lte=d)
+                .order_by('-date')
+                .first()
+            )
+            if not price:
                 continue
-            latest_vh = None
-            for vh in sorted(asset.value_history.all(), key=lambda x: x.date, reverse=True):
-                if vh.date <= d:
-                    latest_vh = vh
-                    break
-            if latest_vh:
-                total += latest_vh.value * asset.quantity
-            else:
-                total += asset.purchase_value()
+
+            qty = asset.total_quantity(user=user)
+            total += price.price * qty
+
         labels.append(d.strftime('%Y-%m-%d'))
         values.append(float(total))
 
-    return {'labels': labels, 'values': values}
-
+    return {
+        'labels': labels,
+        'values': values,
+    }
 
 @login_required
 def account_list(request):
@@ -171,45 +312,63 @@ def account_delete(request, pk):
 
 @login_required
 def asset_list(request):
-    assets = Asset.objects.filter(user=request.user).select_related('account')
+    user = request.user
+    assets = Asset.objects.filter(user=user).prefetch_related('price_history', 'trades')
+
     asset_data = []
     for asset in assets:
+        qty = asset.total_quantity(user=user)
+        if qty <= 0:
+            continue
+
+        price = asset.current_price()
+        if not price:
+            price = Decimal('0.00')
+
+        value = asset.total_value()
+        cost = asset.cost_basis(user=user)
+        gain = value - cost
+
         asset_data.append({
             'asset': asset,
-            'current_value': asset.current_value(),
-            'gain_loss': asset.gain_loss(),
-            'gain_loss_pct': asset.gain_loss_pct(),
+            'quantity': qty,
+            'price': price,
+            'value': value,
+            'cost': cost,
+            'gain': gain,
+            'gain_pct': (gain / cost * 100) if cost > 0 else Decimal('0.00'),
         })
+
     return render(request, 'tracker/investments.html', {'asset_data': asset_data})
 
 
 @login_required
 def asset_create(request):
     if request.method == 'POST':
-        form = AssetForm(user=request.user, data=request.POST)
+        form = AssetForm(request.POST)
         if form.is_valid():
             asset = form.save(commit=False)
             asset.user = request.user
             asset.save()
-            messages.success(request, 'Investment added. Contribution automatically recorded.')
+            messages.success(request, 'Security added.')
             return redirect('asset_list')
     else:
-        form = AssetForm(user=request.user)
-    return render(request, 'tracker/asset_form.html', {'form': form, 'title': 'Add Investment'})
+        form = AssetForm()
+    return render(request, 'tracker/asset_form.html', {'form': form, 'title': 'Add Security'})
 
 
 @login_required
 def asset_edit(request, pk):
     asset = get_object_or_404(Asset, pk=pk, user=request.user)
     if request.method == 'POST':
-        form = AssetForm(user=request.user, data=request.POST, instance=asset)
+        form = AssetForm(request.POST, instance=asset)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Investment updated.')
+            messages.success(request, 'Security updated.')
             return redirect('asset_list')
     else:
-        form = AssetForm(user=request.user, instance=asset)
-    return render(request, 'tracker/asset_form.html', {'form': form, 'title': 'Edit Investment'})
+        form = AssetForm(instance=asset)
+    return render(request, 'tracker/asset_form.html', {'form': form, 'title': 'Edit Security'})
 
 
 @login_required
@@ -217,44 +376,80 @@ def asset_delete(request, pk):
     asset = get_object_or_404(Asset, pk=pk, user=request.user)
     if request.method == 'POST':
         asset.delete()
-        messages.success(request, 'Investment deleted.')
+        messages.success(request, 'Security deleted.')
         return redirect('asset_list')
-    return render(request, 'tracker/confirm_delete.html', {'object': asset, 'object_type': 'Investment'})
-
-
-# @login_required
-# def asset_update_value(request, pk):
-#     asset = get_object_or_404(Asset, pk=pk, user=request.user)
-#     if request.method == 'POST':
-#         form = AssetValueHistoryForm(request.POST)
-#         if form.is_valid():
-#             vh = form.save(commit=False)
-#             vh.asset = asset
-#             vh.save()
-#             messages.success(request, 'Value updated.')
-#             return redirect('asset_list')
-#     else:
-#         form = AssetValueHistoryForm(initial={'date': date.today()})
-#     return render(request, 'tracker/value_form.html', {'form': form, 'asset': asset})
+    return render(request, 'tracker/confirm_delete.html', {'object': asset, 'object_type': 'Security'})
 
 
 @login_required
-def contribution_list(request):
-    contributions = Contribution.objects.filter(user=request.user).select_related('account')
-    return render(request, 'tracker/contributions.html', {'contributions': contributions})
-
-
-@login_required
-def contribution_create(request):
+def asset_price_update(request, pk):
+    asset = get_object_or_404(Asset, pk=pk, user=request.user)
     if request.method == 'POST':
-        form = ContributionForm(user=request.user, data=request.POST)
+        form = AssetPriceHistoryForm(request.POST)
         if form.is_valid():
-            contrib = form.save(commit=False)
-            contrib.user = request.user
-            contrib.auto_generated = False
-            contrib.save()
-            messages.success(request, 'Contribution recorded.')
-            return redirect('account_list')
+            price_history = form.save(commit=False)
+            price_history.asset = asset
+            price_history.save()
+            messages.success(request, 'Price updated.')
+            return redirect('asset_list')
     else:
-        form = ContributionForm(user=request.user)
-    return render(request, 'tracker/contribution_form.html', {'form': form, 'title': 'Add Contribution'})
+        form = AssetPriceHistoryForm(initial={'date': date.today()})
+    return render(request, 'tracker/price_form.html', {'form': form, 'asset': asset})
+
+
+@login_required
+def trade_list(request):
+    trades = Trade.objects.filter(user=request.user).select_related("asset", "account")
+
+    account_type = request.GET.get("account_type")
+    if account_type:
+        trades = trades.filter(account__type=account_type)
+
+    context = {
+        "trades": trades,
+        "selected_account_type": account_type,
+        "account_types": ["TFSA", "RRSP", "FHSA", "LIRA", "Non-Registered"],
+    }
+    return render(request, "tracker/trades.html", context)
+
+
+@login_required
+def trade_create(request):
+    if request.method == 'POST':
+        form = TradeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            trade = form.save(commit=False)
+            trade.user = request.user
+            trade.year = trade.date.year
+            trade.save()
+            messages.success(request, 'Trade recorded.')
+            return redirect('trade_list')
+    else:
+        form = TradeForm(user=request.user)
+    return render(request, 'tracker/trade_form.html', {'form': form, 'title': 'Add Trade'})
+
+
+@login_required
+def trade_edit(request, pk):
+    trade = get_object_or_404(Trade, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = TradeForm(user=request.user, data=request.POST, instance=trade)
+        if form.is_valid():
+            trade = form.save(commit=False)
+            trade.year = trade.date.year
+            trade.save()
+            messages.success(request, 'Trade updated.')
+            return redirect('trade_list')
+    else:
+        form = TradeForm(user=request.user, instance=trade)
+    return render(request, 'tracker/trade_form.html', {'form': form, 'title': 'Edit Trade'})
+
+
+@login_required
+def trade_delete(request, pk):
+    trade = get_object_or_404(Trade, pk=pk, user=request.user)
+    if request.method == 'POST':
+        trade.delete()
+        messages.success(request, 'Trade deleted.')
+        return redirect('trade_list')
+    return render(request, 'tracker/confirm_delete.html', {'object': trade, 'object_type': 'Trade'})

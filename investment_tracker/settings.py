@@ -65,6 +65,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "tracker.tasks.refresh_asset_prices",
         "schedule": 120.0,
     },
+    "update-usd-cad-every-5-min": {
+        "task": "tracker.tasks.update_usd_cad_rate",
+        "schedule": 300,
+    }
 }
 TEMPLATES = [
     {

@@ -2,7 +2,7 @@ import yfinance as yf
 from decimal import Decimal
 from datetime import date
 
-from tracker.models import Asset, AssetValueHistory
+from tracker.models import Asset, AssetPriceHistory
 
 
 def fetch_price(ticker):
@@ -25,21 +25,20 @@ def update_asset_prices():
 
     today = date.today()
 
-    # 1. group assets by ticker
+    # group by ticker (avoids duplicate API calls)
     grouped = {}
-
     for asset in assets:
         grouped.setdefault(asset.ticker.upper(), []).append(asset)
 
-    # 2. fetch once per ticker
     prices = {}
 
+    # fetch once per ticker
     for ticker in grouped.keys():
         prices[ticker] = fetch_price(ticker)
 
     updated = 0
 
-    # 3. apply to each asset
+    # apply prices
     for ticker, asset_list in grouped.items():
         price = prices.get(ticker)
 
@@ -47,15 +46,13 @@ def update_asset_prices():
             continue
 
         for asset in asset_list:
-
-            obj, created = AssetValueHistory.objects.update_or_create(
+            AssetPriceHistory.objects.update_or_create(
                 asset=asset,
                 date=today,
                 defaults={
-                    "value": price
+                    "price": price
                 }
             )
-
             updated += 1
 
-    print(f"Updated {updated} asset history rows")
+    print(f"Updated {updated} asset price rows")

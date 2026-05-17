@@ -5,3 +5,6 @@ restore_assets.py
 __pycache__/
 *.pyc
 celerybeat-schedule
+personal/
+add_to_account.py
+fix_trade_quantities.py

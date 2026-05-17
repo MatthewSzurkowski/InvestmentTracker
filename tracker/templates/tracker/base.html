@@ -279,17 +279,17 @@
       Dashboard
     </a>
     <div class="nav-section-label">Manage</div>
-    <a href="/investments/" class="nav-link {% if '/investments' in request.path %}active{% endif %}">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-      Investments
+    <a href="/securities/" class="nav-link {% if '/securities' in request.path %}active{% endif %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      Securities
+    </a>
+    <a href="/trades/" class="nav-link {% if '/trades' in request.path %}active{% endif %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 17"/><polyline points="17 6 23 6 23 12"/></svg>
+      Trades
     </a>
     <a href="/accounts/" class="nav-link {% if '/accounts' in request.path %}active{% endif %}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
       Accounts
-    </a>
-    <a href="/contributions/" class="nav-link {% if '/contributions' in request.path %}active{% endif %}">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-      Contributions
     </a>
   </nav>
   <div class="sidebar-footer">

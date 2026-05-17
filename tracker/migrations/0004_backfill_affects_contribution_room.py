@@ -2,9 +2,9 @@ from django.db import migrations
 
 
 def set_affects_true(apps, schema_editor):
-    Asset = apps.get_model('tracker', 'Asset')
+    Trade = apps.get_model('tracker', 'Trade')
 
-    Asset.objects.filter(
+    Trade.objects.filter(
         affects_contribution_room__isnull=True
     ).update(
         affects_contribution_room=True
@@ -14,7 +14,7 @@ def set_affects_true(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tracker', '0003_contribution_asset_and_more'),  # Django will set this automatically
+        ('tracker', '0003_remove_assetpricehistory_affects_contribution_room_and_more'),  # Django will set this automatically
     ]
 
     operations = [
